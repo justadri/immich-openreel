@@ -5,15 +5,27 @@
  */
 import { create } from "zustand";
 
-export interface SourceAsset { id: string; fileCreatedAt: string; fileModifiedAt: string }
+export interface SourceAsset {
+  id: string;
+  fileCreatedAt: string;
+  fileModifiedAt: string;
+  /** The project media item this asset was imported as, so picking it again doesn't download it again. */
+  mediaId?: string;
+}
 
 interface SourcesState {
   assets: SourceAsset[];
   add: (assets: SourceAsset[]) => void;
   clear: () => void;
+  /** The media item already holding this asset, if it is still in the project (`exists` checks that). */
+  mediaFor: (assetId: string, exists: (mediaId: string) => boolean) => string | null;
 }
 
-export const useImportedSources = create<SourcesState>((set) => ({
+export const useImportedSources = create<SourcesState>((set, get) => ({
+  mediaFor: (assetId, exists) => {
+    const mediaId = get().assets.find((a) => a.id === assetId)?.mediaId;
+    return mediaId && exists(mediaId) ? mediaId : null;
+  },
   assets: [],
   add: (assets) => set((s) => ({
     assets: [...s.assets.filter((a) => !assets.some((n) => n.id === a.id)), ...assets],

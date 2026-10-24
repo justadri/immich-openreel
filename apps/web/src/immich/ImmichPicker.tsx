@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { LibraryPickerProps } from "../library/provider";
 import { importToLibrary } from "../mobile/add-tools";
+import { useProjectStore } from "../stores/project-store";
 import {
   downloadOriginal, listAlbums, searchVideos, thumbnailUrl,
   type ImmichAlbum, type ImmichAsset,
@@ -147,38 +148,70 @@ export const ImmichPicker: React.FC<LibraryPickerProps> = ({ onClose, onAdded })
     return () => window.removeEventListener("keydown", onKey);
   }, [busy, onClose]);
 
+  // Closing the picker mid-transfer stops it.
+  useEffect(() => () => abort.current?.abort(), []);
+
   const toggle = (a: ImmichAsset) =>
     setPicked((p) => (p.some((x) => x.id === a.id) ? p.filter((x) => x.id !== a.id) : [...p, a]));
 
+  const abort = useRef<AbortController | null>(null);
+
+  /** Stops the transfer. A download is cancelled; an import already handed to the editor is abandoned. */
+  const stop = () => abort.current?.abort();
+
   const add = async () => {
     setError(null);
+    const controller = new AbortController();
+    abort.current = controller;
+    const stopped = new Promise<"stopped">((resolve) => controller.signal.addEventListener("abort", () => resolve("stopped")));
+    const startedAt = Date.now();
+    const clock = () => formatClock((Date.now() - startedAt) / 1000);
     const ids: string[] = [];
     let failed = 0;
+    let interrupted = false;
     try {
       for (let i = 0; i < picked.length; i++) {
         const asset = picked[i];
         const label = picked.length > 1 ? ` ${i + 1}/${picked.length}` : "";
+
+        // Already in this project (picked before): reuse it instead of downloading again.
+        const known = useImportedSources.getState().mediaFor(asset.id, (id) =>
+          useProjectStore.getState().project.mediaLibrary.items.some((m) => m.id === id));
+        if (known) { ids.push(known); continue; }
+
         setStatus(`Downloading${label}…`);
-        const blob = await downloadOriginal(asset.id, (f) => setStatus(`Downloading${label} · ${Math.round(f * 100)}%`));
-        setStatus(`Adding${label}…`);
+        const t0 = performance.now();
+        const blob = await downloadOriginal(asset.id, (f) => setStatus(`Downloading${label} · ${Math.round(f * 100)}%`), controller.signal);
+        console.warn(`[immich] downloaded ${asset.originalFileName} (${blob.size} bytes) in ${Math.round(performance.now() - t0)} ms`);
+
+        setStatus(`Adding${label} · ${clock()}`);
+        const tick = setInterval(() => setStatus(`Adding${label} · ${clock()}`), 1000);
+        const t1 = performance.now();
         const file = new File([blob], asset.originalFileName, {
           type: asset.originalMimeType || blob.type || "video/mp4",
           lastModified: Date.parse(asset.fileModifiedAt) || Date.now(),
         });
-        const res = await importToLibrary([file]);
+        let res: Awaited<ReturnType<typeof importToLibrary>> | "stopped";
+        try { res = await Promise.race([importToLibrary([file]), stopped]); } finally { clearInterval(tick); }
+        console.warn(`[immich] import of ${asset.originalFileName}: ${res === "stopped" ? "stopped" : `${res.ids.length} added, ${res.failed} failed`} after ${Math.round(performance.now() - t1)} ms`);
+        if (res === "stopped") { interrupted = true; break; }
+
         ids.push(...res.ids);
         failed += res.failed;
         if (res.ids.length) {
-          useImportedSources.getState().add([{ id: asset.id, fileCreatedAt: asset.fileCreatedAt, fileModifiedAt: asset.fileModifiedAt }]);
+          useImportedSources.getState().add([{ id: asset.id, fileCreatedAt: asset.fileCreatedAt, fileModifiedAt: asset.fileModifiedAt, mediaId: res.ids[0] }]);
         }
       }
       if (ids.length) await onAdded(ids);
-      if (failed) setError(`Couldn't add ${failed} of ${picked.length}.`);
+      if (interrupted) setError(ids.length ? `Stopped. Added ${ids.length} before that.` : "Stopped.");
+      else if (failed) setError(`Couldn't add ${failed} of ${picked.length}.`);
       else onClose();
     } catch (e) {
       if (ids.length) await onAdded(ids);
-      setError(e instanceof Error ? e.message : String(e));
+      if (e instanceof DOMException && e.name === "AbortError") setError(ids.length ? `Stopped. Added ${ids.length} before that.` : "Stopped.");
+      else setError(e instanceof Error ? e.message : String(e));
     } finally {
+      abort.current = null;
       setStatus(null);
       if (ids.length) setPicked([]);
     }
@@ -197,7 +230,7 @@ export const ImmichPicker: React.FC<LibraryPickerProps> = ({ onClose, onAdded })
             {phase === "ready" && !busy && (
               <button type="button" className="rounded-lg px-2 py-1 text-xs text-fg-muted" onClick={() => { setPicked([]); void signOut(); }}>Sign out</button>
             )}
-            <button type="button" aria-label="Close" disabled={busy} onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full text-lg disabled:opacity-40">✕</button>
+            <button type="button" aria-label="Close" onClick={() => { stop(); onClose(); }} className="grid h-8 w-8 place-items-center rounded-full text-lg">✕</button>
           </div>
         </div>
 
@@ -222,9 +255,13 @@ export const ImmichPicker: React.FC<LibraryPickerProps> = ({ onClose, onAdded })
             <div className="space-y-2 border-t border-border p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
               {error && <p className="text-center text-sm text-red-400" role="alert">{error}</p>}
               {status && <p className="text-center text-sm text-fg-muted" role="status">{status}</p>}
-              <button type="button" className={primary} disabled={!picked.length || busy} onClick={() => void add()}>
-                {picked.length ? `Add ${picked.length} video${picked.length > 1 ? "s" : ""}` : "Select videos"}
-              </button>
+              {busy ? (
+                <button type="button" className="w-full rounded-xl border border-border py-3 text-sm font-bold" onClick={stop}>Stop</button>
+              ) : (
+                <button type="button" className={primary} disabled={!picked.length} onClick={() => void add()}>
+                  {picked.length ? `Add ${picked.length} video${picked.length > 1 ? "s" : ""}` : "Select videos"}
+                </button>
+              )}
             </div>
           </>
         )}

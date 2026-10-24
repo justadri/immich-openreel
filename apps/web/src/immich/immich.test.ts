@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "./api";
 import { durationSeconds, formatClock } from "./format";
-import { exportTimestamps } from "./sources";
+import { exportTimestamps, useImportedSources } from "./sources";
 import { useImmichSession } from "./session";
 import { immichProvider } from "./provider";
 import { canSaveExports } from "../library/provider";
@@ -36,6 +36,17 @@ describe("exportTimestamps", () => {
     ], now);
     expect(t.fileCreatedAt).toBe("2026-04-01T08:30:00.000Z");
     expect(t.fileModifiedAt).toBe(now.toISOString());
+  });
+});
+
+describe("mediaFor", () => {
+  it("reuses an imported asset only while its media item is still in the project", () => {
+    useImportedSources.setState({ assets: [] });
+    useImportedSources.getState().add([{ id: "a1", fileCreatedAt: "x", fileModifiedAt: "x", mediaId: "m1" }]);
+    const { mediaFor } = useImportedSources.getState();
+    expect(mediaFor("a1", (id) => id === "m1")).toBe("m1");
+    expect(mediaFor("a1", () => false)).toBeNull();
+    expect(mediaFor("other", () => true)).toBeNull();
   });
 });
 
