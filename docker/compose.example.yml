@@ -1,0 +1,20 @@
+# Add the immich-openreel service to your Immich compose file (the one with `immich-server`).
+# Open it at http://<host>:8080, sign in with your Immich account, and pick videos from your library.
+#
+# Put it behind your reverse proxy / HTTPS like Immich itself. Sessions are Immich's own cookie, so
+# everyone only sees what their Immich account can see.
+
+services:
+  immich-openreel:
+    image: ghcr.io/justadri/immich-openreel:latest
+    container_name: immich_openreel
+    restart: unless-stopped
+    depends_on:
+      - immich-server
+    environment:
+      # Origin of the Immich server as seen from this container (no trailing slash or /api).
+      IMMICH_URL: http://immich-server:2283
+      # Docker's embedded DNS. Only change this outside Docker (for example Kubernetes).
+      # NGINX_RESOLVER: 127.0.0.11
+    ports:
+      - "8080:80"

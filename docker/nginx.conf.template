@@ -1,0 +1,70 @@
+# Rendered by the nginx image's entrypoint (envsubst): ${IMMICH_URL} and ${NGINX_RESOLVER} come from the environment.
+
+map $http_x_forwarded_proto $immich_fwd_proto {
+    default $http_x_forwarded_proto;
+    ""      $scheme;
+}
+
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    include /etc/nginx/snippets/cross-origin-isolation.conf;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/css application/javascript application/json image/svg+xml application/wasm text/plain;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # Immich, same origin. /immich-api/x -> ${IMMICH_URL}/api/x. The upstream is held in a variable so
+    # nginx starts even when Immich isn't up yet (it resolves the name per request).
+    location /immich-api/ {
+        resolver ${NGINX_RESOLVER} valid=10s ipv6=off;
+        set $immich_upstream "${IMMICH_URL}";
+        rewrite ^/immich-api/(.*)$ /api/$1 break;
+        proxy_pass $immich_upstream;
+
+        proxy_http_version 1.1;
+        proxy_ssl_server_name on;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $immich_fwd_proto;
+
+        # Videos go both ways: no size limit, stream instead of buffering.
+        client_max_body_size 0;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+    }
+
+    # Hashed build output never changes.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        include /etc/nginx/snippets/cross-origin-isolation.conf;
+        try_files $uri =404;
+    }
+
+    # The shell and the service worker must always be revalidated.
+    location = /index.html {
+        add_header Cache-Control "no-cache" always;
+        include /etc/nginx/snippets/cross-origin-isolation.conf;
+    }
+    location = /sw.js {
+        add_header Cache-Control "no-cache" always;
+        include /etc/nginx/snippets/cross-origin-isolation.conf;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

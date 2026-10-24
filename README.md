@@ -1,149 +1,66 @@
-<div align="center">
+# immich-openreel
 
-# OpenReel Video
+A browser video editor wired into [Immich](https://immich.app). Pick videos from your Immich library,
+crop, rotate, trim, join and caption them, and save the result back to Immich, all in the browser.
 
-### Your footage. Your timeline. Your final cut.
+It is a fork of [OpenReel Video](https://github.com/Augani/openreel-video) (MIT) with:
 
-An open source video editor for the browser and desktop.<br>
-Cut clips, add captions, mix audio, and finish your video without a watermark.
+- **Immich library access.** Browse all videos or albums, select several, and import the originals into a project.
+- **Save back to Immich.** After an export, one tap uploads the new video to your library. It takes the date of the footage it was cut from, and Immich's duplicate check stops it being uploaded twice.
+- **Sign in with your Immich account.** Every user signs in as themselves, so each person only sees and changes what their own Immich account allows. No shared API key.
+- **A phone editor.** A touch-first layout (opt-in with `?m=1`, remembered; `?m=0` turns it off) ported from [KAShow's fork](https://github.com/KAShow/openreel-video).
 
-**[Open the editor](https://openreel.video)** &nbsp;·&nbsp; **[Download desktop](https://github.com/Augani/openreel-video/releases/latest)** &nbsp;·&nbsp; **[Get help](https://github.com/Augani/openreel-video/issues)**
+Everything else is stock OpenReel: editing and rendering happen in your browser, and footage is not sent anywhere except between your browser and your own Immich server.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-6366F1?style=flat-square)](LICENSE)
-[![Desktop releases](https://img.shields.io/github/v/release/Augani/openreel-video?include_prereleases&label=Desktop&style=flat-square&color=6366F1)](https://github.com/Augani/openreel-video/releases/latest)
+## Run it
 
-<a href="https://github.com/sponsors/Augani">
-  <img src="https://img.shields.io/badge/Sponsor_me-EA4AAA?style=for-the-badge&amp;logo=githubsponsors&amp;logoColor=white" alt="Sponsor me on GitHub" height="40">
-</a>
+Add the service to the compose file that runs Immich ([`docker/compose.example.yml`](docker/compose.example.yml)):
 
-</div>
+```yaml
+services:
+  immich-openreel:
+    image: ghcr.io/justadri/immich-openreel:latest
+    restart: unless-stopped
+    environment:
+      IMMICH_URL: http://immich-server:2283
+    ports:
+      - "8080:80"
+```
 
----
+Then open it and use **Immich** in the Media panel (or **+ → From Immich** on a phone).
 
-## Make something worth watching
+**Serve it over HTTPS** (or open it on `localhost`). The editor depends on WebCodecs and other browser features that only exist in a secure context, so plain `http://192.168.x.x:8080` will not export. Put it behind the same reverse proxy that serves Immich.
 
-From a quick social clip to a longer edit, OpenReel gives you a timeline, a live preview, and control over the details.
+### Settings
 
-| What you want to do | What you can use |
-| :--- | :--- |
-| **Get to the good part** | Trim, split, crop, ripple delete, rearrange clips, and change playback speed. |
-| **Build your story** | Stack video, audio, text, and graphics on multiple tracks. Add transitions and animate with keyframes. |
-| **Make every word readable** | Create and style captions, import SRT subtitles, and add animated titles. |
-| **Make it sound right** | Mix music and dialogue with waveforms, volume controls, fades, EQ, compression, and audio ducking. |
-| **Find your look** | Adjust color with wheels, curves, HSL controls, and LUTs. Add effects, masks, and chroma key. |
-| **Fit the platform** | Work in landscape, portrait, or square, then choose export resolution, frame rate, and bitrate. |
-
-## Edit with an AI assistant
-
-Connect your own OpenAI, Anthropic, or compatible endpoint to make reversible timeline edits. Model connections and session keys are configured in Settings → AI Editor. See the [AI editing guide](docs/ai-editing.md) for setup, supported tools, and edit-sharing behavior.
-
-## Start editing in minutes
-
-1. **[Open OpenReel](https://openreel.video)** and create a project.
-2. **Import your media** and drag clips onto the timeline.
-3. **Shape your edit** with cuts, captions, music, color, and transitions.
-4. **Export your video** using a preset or your own settings.
-
-The browser editor needs no installation. For a native app, download a **macOS, Windows, or Linux** build from [Releases](https://github.com/Augani/openreel-video/releases/latest). Desktop builds are currently in **alpha**.
-
-## Keep control of your footage
-
-**Core editing and rendering happen on your device.** You can import, cut, preview, and export local media without uploading it to a server.
-
-- **No export watermark.** Your finished video stays yours.
-- **Open source, MIT licensed.** Use it for personal or commercial work, inspect the code, or host your own copy.
-- **Save as you work.** Local autosave and undo/redo help you recover edits. Export project files for backups and moving between sessions.
-- **Choose when to connect.** Optional AI and connected services use network requests; their data handling depends on the provider and feature you choose.
-
-Browser storage can be cleared by your browser. Keep backups of your project files and original media for work you want to keep.
-
-## Export for the next step
-
-| Destination | Export options |
-| :--- | :--- |
-| **Social posts, tutorials, and everyday sharing** | MP4 with H.264; landscape, portrait, and square presets. |
-| **Web playback** | WebM, with codec availability determined by your browser and device. |
-| **High-resolution delivery** | Resolution presets up to 4K, plus custom frame rate and bitrate controls. |
-| **Further editing and compositing** | Use desktop for ProRes and exports that need transparency. |
-
-Browser codec support, available memory, and hardware affect which settings you can use and how fast exports finish. OpenReel adjusts unsupported browser settings where needed; use desktop when you need native export capabilities.
-
-## A little help from AI, if you want it
-
-Describe an edit in the **AI Editor** panel: trim a clip, add a title, adjust a transform, or build a sequence through chat. Connect your own OpenAI, Anthropic, or compatible endpoint.
-
-AI is optional and provider usage may cost money. See the [AI Editor setup guide](docs/AGENT-GUIDE.md#bring-your-own-key-web--desktop-chat) for configuration, data handling, and approval controls. Desktop also supports [MCP clients](docs/AGENT-GUIDE.md), so external assistants can work with your project.
-
-## Choose your setup
-
-| | Browser | Desktop |
+| Variable | Default | |
 | :--- | :--- | :--- |
-| **Get started** | [Open the web editor](https://openreel.video) | [Download a release](https://github.com/Augani/openreel-video/releases/latest) |
-| **Install** | No installation | macOS, Windows, or Linux |
-| **Editing** | Timeline, captions, audio, color, effects, and keyframes | The editor with native desktop integrations |
-| **Export** | Browser-supported codecs and settings | Native FFmpeg export, including ProRes/alpha workflows |
-| **AI connection** | Bring your own provider or compatible endpoint | Provider connections plus external MCP clients |
+| `IMMICH_URL` | `http://immich-server:2283` | Immich's origin as seen from the container. A trailing `/` or `/api` is tolerated. |
+| `NGINX_RESOLVER` | `127.0.0.11` | DNS server nginx uses to find Immich. Docker's embedded DNS by default; change it outside Docker. |
 
-Use an up-to-date browser. Chrome or Edge is a good starting point; codec and GPU support vary across browsers and operating systems. Larger projects and 4K footage benefit from more memory and a capable GPU.
+The container serves the editor and proxies `/immich-api/` to `${IMMICH_URL}/api/`, so the browser only ever talks to one origin: no CORS, and Immich's own session cookie authenticates every request. If Immich is unreachable the Immich buttons simply do not appear and the editor works as plain OpenReel.
 
----
+## Good to know
 
-## Run it locally
+- Tested against **Immich v3.3**. It uses the current `search/metadata`, `assets` and `albums` endpoints.
+- Sign-in is email and password. Single sign-on (OIDC through Immich) is planned; if password login is turned off in Immich, sign-in is not possible yet.
+- To save an export back to Immich, the browser keeps a copy in memory while you choose, so exports over about 250 MB are downloaded but not offered for saving.
+- Imports are the **original** files (not the transcoded previews), so edits start from full quality. Large originals take a while on a phone connection.
+- The phone editor can trim, split, change speed and volume, add text and cut silences. Crop and rotate are on the desktop layout for now.
 
-Install [Node.js](https://nodejs.org/) and the pnpm version declared in [`package.json`](package.json), then:
+## Develop
 
-```bash
-git clone https://github.com/Augani/openreel-video.git
-cd openreel-video
+```sh
 pnpm install
-pnpm dev
+IMMICH_URL=http://your-immich:2283 pnpm dev   # /immich-api is proxied to your server, as in the image
+pnpm typecheck && pnpm test
 ```
 
-Open the local URL printed by Vite, usually `http://localhost:5173`.
+`pnpm build` produces the static site in `apps/web/dist`; `docker build -t immich-openreel .` builds the image.
 
-```bash
-# Build and preview the browser app
-pnpm build
-pnpm preview
+## Credits and license
 
-# Check your changes
-pnpm typecheck
-pnpm test
-pnpm lint
-```
+MIT, see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md). OpenReel is by Augustus Otu and contributors;
+the phone editor comes from KAShow's fork. Commits made with Claude carry a `Co-Authored-By` trailer.
 
-<details>
-<summary><strong>Inside the project</strong></summary>
-
-<br>
-
-| Path | Purpose |
-| :--- | :--- |
-| [`apps/web`](apps/web) | Browser editor and shared desktop interface |
-| [`apps/desktop`](apps/desktop) | Desktop app, native integrations, and packaging |
-| [`packages/core`](packages/core) | Timeline, media, audio, rendering, and export engines |
-| [`packages/ui`](packages/ui) | Shared interface components |
-| [`packages/agent`](packages/agent) | AI editing tools and routing |
-
-Built with React, TypeScript, Zustand, MediaBunny, WebCodecs, WebGPU, Web Audio, and Three.js.
-
-For desktop packaging, see the [distribution guide](apps/desktop/DISTRIBUTION.md).
-
-</details>
-
-## Help shape OpenReel
-
-**Found a bug?** [Open an issue](https://github.com/Augani/openreel-video/issues/new) with what you tried, what happened, your browser or desktop version, and steps to reproduce it.
-
-**Want to contribute?** Start with the [contributing guide](CONTRIBUTING.md). Fixes, documentation, accessibility improvements, and reproducible test cases all help.
-
-**Want to support development?** [Sponsor Augustus on GitHub](https://github.com/sponsors/Augani) to support continued work on OpenReel.
-
----
-
-<div align="center">
-
-Made by [Augustus Otu](https://github.com/Augani) and [contributors](https://github.com/Augani/openreel-video/graphs/contributors).<br>
-[MIT License](LICENSE) &nbsp;·&nbsp; [Updates on X](https://x.com/python_xi) &nbsp;·&nbsp; [Sponsor](https://github.com/sponsors/Augani)
-
-</div>
+The original OpenReel README is kept in [OPENREEL-README.md](OPENREEL-README.md).
