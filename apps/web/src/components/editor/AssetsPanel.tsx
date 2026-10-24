@@ -36,6 +36,7 @@ import { useKieAIStore } from "../../stores/kieai-store";
 import { StickerPickerPanel } from "./inspector/StickerPickerPanel";
 import { insertTimelineOverlay } from "../../stores/project/insert-timeline-overlay";
 import { PreviewProxyBadge, PreviewProxyControls } from "./PreviewProxyControls";
+import { useLibrary } from "../../library/provider";
 
 const formatDuration = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
@@ -642,6 +643,8 @@ export const AssetsPanel: React.FC = () => {
     setActiveTabRaw(tab);
   }, [activeTab, ttsHasUnsaved]);
 
+  const libraryProvider = useLibrary((s) => s.provider);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState("");
@@ -1031,6 +1034,16 @@ export const AssetsPanel: React.FC = () => {
                   </svg>
                   Import
                 </button>
+                {libraryProvider && (
+                  <button
+                    type="button"
+                    aria-label={`Import from ${libraryProvider.label}`}
+                    onClick={() => setLibraryOpen(true)}
+                    className="flex-1 flex items-center justify-center gap-[7px] bg-bg border border-border rounded-[9px] p-[10px] font-medium text-[13px] text-fg-2"
+                  >
+                    {libraryProvider.label}
+                  </button>
+                )}
                 <button
                   type="button"
                   aria-label="Record"
@@ -1574,6 +1587,15 @@ export const AssetsPanel: React.FC = () => {
             event.target.value = "";
           }}
         />
+
+        {libraryOpen && libraryProvider && (
+          <libraryProvider.Picker
+            onClose={() => setLibraryOpen(false)}
+            onAdded={(ids) => {
+              toast.success(`Added ${ids.length} from ${libraryProvider.label}`, "Drag it onto the timeline to use it.");
+            }}
+          />
+        )}
 
         {/* Dynamic Section Content */}
         <div className="flex-1 min-h-0 relative flex flex-col overflow-hidden">

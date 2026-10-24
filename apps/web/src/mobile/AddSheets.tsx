@@ -84,9 +84,10 @@ export const AddMediaButton: React.FC = () => {
             <button type="button" className={option} disabled={!!busy && busy.startsWith("Adding")} onClick={() => input.current?.click()}>
               <span className="text-2xl" aria-hidden>📱</span><span><b className="block">From this device</b><span className="text-xs text-fg-muted">Video, photo or audio from your gallery or files</span></span>
             </button>
-            {provider && (provider.status === "ready" ? (
-              <button type="button" className={option} onClick={() => { setMenu(false); setLibrary(true); }}>
-                <span className="text-2xl" aria-hidden>🎬</span><span><b className="block">From {provider.label}</b><span className="text-xs text-fg-muted">{provider.description}</span></span>
+            {provider && (provider.status === "ready" || !provider.signInHref ? (
+              // A provider without a sign-in link handles signing in inside its own Picker.
+              <button type="button" className={option} disabled={provider.status === "connecting"} onClick={() => { setMenu(false); setLibrary(true); }}>
+                <span className="text-2xl" aria-hidden>🎬</span><span><b className="block">From {provider.label}</b><span className="text-xs text-fg-muted">{provider.status === "ready" ? provider.description : provider.status === "connecting" ? "Connecting…" : "Sign in to browse your library"}</span></span>
               </button>
             ) : provider.signInHref ? (
               <a href={provider.signInHref} className={option}>

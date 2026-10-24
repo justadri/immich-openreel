@@ -59,17 +59,23 @@ export async function appendToTimeline(mediaIds: readonly string[]): Promise<num
   return placed;
 }
 
-/** Imports files picked on the phone and puts them on the timeline. */
-export async function importFiles(files: readonly File[]): Promise<{ placed: number; failed: number }> {
-  const added: string[] = [];
+/** Imports files into the project's media library (not the timeline); returns the new media IDs. */
+export async function importToLibrary(files: readonly File[]): Promise<{ ids: string[]; failed: number }> {
+  const ids: string[] = [];
   let failed = 0;
   for (const file of files) {
     const before = new Set(store().project.mediaLibrary.items.map((m) => m.id));
     const res = await store().importMedia(file);
     if (!res.success) { failed++; continue; }
-    added.push(...store().project.mediaLibrary.items.filter((m) => !before.has(m.id)).map((m) => m.id));
+    ids.push(...store().project.mediaLibrary.items.filter((m) => !before.has(m.id)).map((m) => m.id));
   }
-  const placed = await appendToTimeline(added);
-  return { placed, failed: failed + (added.length - placed) };
+  return { ids, failed };
+}
+
+/** Imports files picked on the phone and puts them on the timeline. */
+export async function importFiles(files: readonly File[]): Promise<{ placed: number; failed: number }> {
+  const { ids, failed } = await importToLibrary(files);
+  const placed = await appendToTimeline(ids);
+  return { placed, failed: failed + (ids.length - placed) };
 }
 

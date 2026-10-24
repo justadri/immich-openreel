@@ -10,6 +10,8 @@ import { registerServiceWorker } from "./services/service-worker";
 import { initCustomFonts } from "./components/editor/inspector/font-options";
 import { setEncoderBackendFactory } from "@openreel/core";
 import { NativeFFmpegBackend } from "./services/native-ffmpeg-backend";
+import { registerImmich } from "./immich/provider";
+import { SaveToLibraryPrompt } from "./library/SaveToLibraryPrompt";
 
 const DesktopApp = React.lazy(() =>
   import("./desktop/DesktopApp").then((module) => ({
@@ -37,6 +39,8 @@ registerServiceWorker().then((registration) => {
 });
 
 void initCustomFonts();
+// Offers Immich in the editor when the web server proxies one at /immich-api; a no-op otherwise.
+void registerImmich();
 
 const root = document.getElementById("root")!;
 
@@ -46,7 +50,10 @@ async function renderApplication(): Promise<void> {
           <DesktopApp />
         </React.Suspense>
       ) : (
-        <App />
+        <>
+          <App />
+          <SaveToLibraryPrompt />
+        </>
       );
 
   ReactDOM.createRoot(root).render(

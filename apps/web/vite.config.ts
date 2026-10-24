@@ -65,6 +65,17 @@ export default defineConfig({
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
+    // Dev only: IMMICH_URL=http://host:2283 pnpm dev  ->  /immich-api is proxied to <IMMICH_URL>/api
+    // (the Docker image does the same with nginx).
+    proxy: process.env.IMMICH_URL
+      ? {
+          "/immich-api": {
+            target: process.env.IMMICH_URL.replace(/\/+$/, ""),
+            changeOrigin: true,
+            rewrite: (p: string) => p.replace(/^\/immich-api/, "/api"),
+          },
+        }
+      : undefined,
   },
   preview: {
     headers: {

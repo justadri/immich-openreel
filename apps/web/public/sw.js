@@ -147,6 +147,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // The Immich proxy: per-user, authenticated, never cached or intercepted
+  if (url.pathname.startsWith("/immich-api/")) {
+    return;
+  }
+
   // Handle AI requests - network only with offline message
   if (isAIRequest(url)) {
     event.respondWith(
